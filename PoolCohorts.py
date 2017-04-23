@@ -49,5 +49,3 @@ NoteRates = np.array([
 
 pool = pd.DataFrame([PoolAmounts, NoteRates]).T
 pool.columns = ['Balance', 'Note_Rate']
-
-print(pool)
