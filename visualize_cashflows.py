@@ -1,10 +1,15 @@
+import warnings
+
 import numpy as np
+import pandas as pd
 from bokeh.layouts import widgetbox, layout
 # from bokeh.io import output_file, show
 from bokeh.models import NumeralTickFormatter, ColumnDataSource
 from bokeh.models.tools import HoverTool
 from bokeh.models.widgets import Button, Slider, DataTable, NumberFormatter, TableColumn
 from bokeh.plotting import figure, curdoc
+
+warnings.filterwarnings('ignore')
 
 import collateral_waterfall as cw
 import prepayment_calcs as pc
@@ -81,13 +86,13 @@ columns = [
     TableColumn(field='cash_flow', title='Total Cash Flow', formatter=NumberFormatter(format=',')),
 ]
 
-data_table = DataTable(source=source, columns=columns, fit_columns=True, width=1200, row_headers=False)
-
 waterfall_figure.x_range = psa_figure.x_range
 waterfall_figure.xaxis.axis_label = 'Month of Payment'
 waterfall_figure.yaxis.axis_label = 'Total Cash Flows ($)'
 waterfall_figure.xaxis.formatter = NumeralTickFormatter(format='0')
 waterfall_figure.yaxis.formatter = NumeralTickFormatter(format=',')
+
+data_table = DataTable(source=source, columns=columns, fit_columns=True, width=1200, row_headers=False)
 
 def update():
 
@@ -95,6 +100,7 @@ def update():
     wam = wam_slider.value
     bal = original_balance_slider.value
 
+    source.data['index'] = []
     source.data['periods'] = []
     source.data['psa_speed'] = []
     source.data['cash_flow'] = list(np.zeros(wam))
@@ -106,11 +112,14 @@ def update():
     source.data['scheduled_principal'] = list(np.zeros(wam))
     source.data['total_principal'] = list(np.zeros(wam))
 
-    periods = range(1, wam + 1)
-
+    window = range(1, wam + 1)
+    print(window)
     for period in window:
+        source.data['index'].append(period)
         source.data['periods'].append(period)
         source.data['psa_speed'].append(pc.PSA(period) * speed)
+
+    print(pd.DataFrame(data=[source.data['periods'], source.data['psa_speed']]).T.tail())
     psa_figure.circle(x='periods', y='psa_speed', source=source, name='PSA-{0:.2f}'.format(mult), alpha=1, color='red')
 
     waterfall = cw.create_waterfall(original_balance=bal, psa_speed=speed, wam=wam)
@@ -125,7 +134,7 @@ def update():
 
     waterfall_figure.circle(x='periods', y='cash_flow', color='blue', source=source)
 
-    print(len(source.data['beginning_balance']), len(source.data['psa_speed']), len(source.data['cash_flow']))
+    # print(len(source.data['beginning_balance']), len(source.data['psa_speed']), len(source.data['cash_flow']))
 
 # output_file('waterfalls.html')
 #show(grid)
