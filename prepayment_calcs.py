@@ -1,10 +1,10 @@
 """ Functions for calculating prepayment features such as 
 
-single monthly mortality (SMM) => SMM = 1 - (1 - CPR)^(1/12)
+single monthly mortality (SMM) => $SMM = 1 - (1 - CPR)^(1/12)$
 
-constant prepayment rate (CPR) => CPR = 1 - ((1 - SMM)^12)
+constant prepayment rate (CPR) => $CPR = 1 - ((1 - SMM)^12)$
 
-PSA benchmark => PSA = month * 0.002 if month <= 30 else 6
+PSA benchmark => PSA = $month * 0.002 if month <= 30 else 6$
 
 Also contains function to produce CPR curves based on text descriptions, i.e. PSA benchmark = '0.2 ramp 6 for 30, 6'"""
 
@@ -21,7 +21,7 @@ def CPR(SMM):
 
 
 def PSA(month):
-    return month * 0.002 if month <= 30 else 6
+    return month * 0.002 if month <= 30 else .06
 
 
 def cpr_curve_creator(description='.2 ramp 6 for 30, 6'):
@@ -49,7 +49,10 @@ def cpr_curve_creator(description='.2 ramp 6 for 30, 6'):
     for period in periods:
         start_cpr = 0
         end_cpr = 0
-        
+        period_duration = 0
+        cpr_increment = 0
+        period_curve = None
+
         if period == periods[-1]:
             end_period = True
 

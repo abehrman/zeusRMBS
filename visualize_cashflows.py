@@ -27,6 +27,24 @@ colors = {
     4: 'orange'
 }
 
+wam = 360
+window = range(1, wam + 1)
+
+# PSA graph
+
+psa_figure = figure(title='CPR Rate', tools=['box_zoom', 'lasso_select', 'box_select', 'save', 'reset'])
+
+for mult in np.linspace(0.25, 3, num=12):
+    periods = []
+    psa_speed = []
+
+    for period in window:
+        periods.append(period)
+        psa_speed.append(pc.PSA(period) * mult)
+    psa_figure.line(periods, psa_speed, name='PSA-{0:.2f}'.format(mult), alpha=0.3)
+
+psa_figure.yaxis.formatter = NumeralTickFormatter(format='0%')
+
 source = ColumnDataSource(data=dict(periods=[],
                                     psa_speed=[],
                                     cash_flow=[],
@@ -53,23 +71,6 @@ inputbox2 = widgetbox([cpr_curve_input, calc_button, download_button])
 # for control in controls:
 #    control.on_change('value', lambda attr, old, new: update())
 
-wam = 358
-window = range(1, wam + 1)
-
-# PSA graph
-
-psa_figure = figure(title='PSA speed', tools=['box_zoom', 'lasso_select', 'box_select', 'save', 'reset'])
-
-for mult in np.linspace(0.25, 3, num=12):
-    periods = []
-    psa_speed = []
-
-    for period in window:
-        periods.append(period)
-        psa_speed.append(pc.PSA(period) * mult)
-    psa_figure.line(periods, psa_speed, name='PSA-{0:.2f}'.format(mult), alpha=0.3)
-
-psa_figure.yaxis.formatter = NumeralTickFormatter(format='0%')
 
 # Waterfall graphs
 
