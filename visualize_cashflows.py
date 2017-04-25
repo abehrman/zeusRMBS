@@ -151,7 +151,9 @@ def update():
     source.data['scheduled_principal'] = waterfall.scheduled_principal.tolist()
     source.data['total_principal'] = waterfall.total_principal.tolist()
 
-    waterfall_figure.circle(x='periods', y='cash_flow', color='blue', source=source, legend='Total Cash Flow')
+    waterfall_figure.circle(x='periods', y='cash_flow', color='lightblue', source=source,
+                            size=1)
+    waterfall_figure.line(x='periods', y='cash_flow', color='blue', source=source, legend='Total Cash Flow')
 
     # print(len(source.data['beginning_balance']), len(source.data['psa_speed']), len(source.data['cash_flow']))
 
