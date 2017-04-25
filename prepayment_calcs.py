@@ -49,10 +49,7 @@ def cpr_curve_creator(description='.2 ramp 6 for 30, 6'):
     for period in periods:
         start_cpr = 0
         end_cpr = 0
-        period_duration = 0
-        cpr_increment = 0
-        period_curve = None
-
+        
         if period == periods[-1]:
             end_period = True
 

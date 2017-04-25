@@ -4,12 +4,13 @@ along with charts for CPR and PSA curves as well as the total cash flow received
 
 
 import warnings
+from os.path import dirname, join
 
 import numpy as np
 import pandas as pd
 from bokeh.layouts import widgetbox, layout
 # from bokeh.io import output_file, show
-from bokeh.models import NumeralTickFormatter, ColumnDataSource
+from bokeh.models import NumeralTickFormatter, ColumnDataSource, CustomJS
 from bokeh.models.tools import HoverTool
 from bokeh.models.widgets import Button, Slider, DataTable, NumberFormatter, TableColumn, TextInput
 from bokeh.plotting import figure, curdoc
@@ -26,14 +27,29 @@ colors = {
     4: 'orange'
 }
 
+source = ColumnDataSource(data=dict(periods=[],
+                                    psa_speed=[],
+                                    cash_flow=[],
+                                    beginning_balance=[],
+                                    SMM=[],
+                                    mortgage_payments=[],
+                                    net_interest=[],
+                                    prepayments=[],
+                                    scheduled_principal=[],
+                                    total_principal=[]))
+
 cpr_curve_input = TextInput(title='CPR Curve Description', value='.2 ramp 6 for 30, 6')
 psa_speed_slider = Slider(start=.1, end=5, step=.1, value=1, title='Prepay Curve Speed')
 wam_slider = Slider(start=10, end=360, step=1, value=358, title='WAM')
 original_balance_slider = Slider(start=1e6, end=1e9, step=1e6, value=400e6, title='Original balance')
 calc_button = Button(label='Calculate')
 
+download_button = Button(label="Download Datatable", button_type="success")
+download_button.callback = CustomJS(args=dict(source=source),
+                                    code=open(join(dirname(__file__), "download.js")).read())
+
 inputbox1 = widgetbox([psa_speed_slider, wam_slider, original_balance_slider])
-inputbox2 = widgetbox([cpr_curve_input, calc_button])
+inputbox2 = widgetbox([cpr_curve_input, calc_button, download_button])
 # for control in controls:
 #    control.on_change('value', lambda attr, old, new: update())
 
@@ -70,16 +86,6 @@ waterfall_figure = figure(title='Waterfall',
                           ])])
 
 psa_speeds = [1.0, 1.65]
-source = ColumnDataSource(data=dict(periods=[],
-                                    psa_speed=[],
-                                    cash_flow=[],
-                                    beginning_balance=[],
-                                    SMM=[],
-                                    mortgage_payments=[],
-                                    net_interest=[],
-                                    prepayments=[],
-                                    scheduled_principal=[],
-                                    total_principal=[]))
 
 columns = [
     TableColumn(field='periods', title='Month', formatter=NumberFormatter(format=',')),
