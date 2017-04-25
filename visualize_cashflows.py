@@ -1,3 +1,8 @@
+""" Produces web page with inputs for CPR curve shape and speed, weighted average maturity,
+and original balance amount. Produces interactive Bokeh datatable with collateral amortization
+along with charts for CPR and PSA curves as well as the total cash flow received each period."""
+
+
 import warnings
 
 import numpy as np
@@ -97,6 +102,9 @@ waterfall_figure.yaxis.formatter = NumeralTickFormatter(format=',')
 data_table = DataTable(source=source, columns=columns, fit_columns=True, width=1200, row_headers=False)
 
 def update():
+    """update() is called when the calculate button is pressed and refreshes the information in the datatable and charts
+    corresponding to user the inputs."""
+
     cpr_curve = pc.cpr_curve_creator(cpr_curve_input.value)
     speed = psa_speed_slider.value
     wam = wam_slider.value

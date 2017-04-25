@@ -1,3 +1,5 @@
+""" Module for producing waterfall tables based on input collateral criteria. AKA amortization table."""
+
 import numpy as np
 import pandas as pd
 
@@ -6,6 +8,12 @@ import prepayment_calcs as pc
 
 def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=358, psa_speed=1.0,
                      cpr_description='.2 ramp 6 for 30, 6'):
+    """ Takes collateral summary inputs based on aggregations equaling total original balance, average pass-thru-coupon,
+    weighted average coupon of underlying loans, weighted average maturity of underlying loans, psa speed multiplier
+    for prepayment curve, and constant prepayment rate curve description.
+    
+    CPR description is turned into a list of CPRs which are then run through the SMM function for period SMMs."""
+
     cpr_curve = pc.cpr_curve_creator(cpr_description)
     age = 360 - wam
 
@@ -53,10 +61,6 @@ def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=
         row['cash_flow'] = row['net_interest'] + row['total_principal']
 
     return waterfall
-
-
-def calculate_balance(previous_balance, reductions=0):
-    return previous_balance - reductions
 
 
 if __name__ == "__main__":

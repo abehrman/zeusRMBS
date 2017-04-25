@@ -1,9 +1,19 @@
+""" Functions for calculating prepayment features such as 
+
+single monthly mortality (SMM) => SMM = 1 - (1 - CPR)^(1/12)
+
+constant prepayment rate (CPR) => CPR = 1 - ((1 - SMM)^12)
+
+PSA benchmark => PSA = month * 0.002 if month <= 30 else 6
+
+Also contains function to produce CPR curves based on text descriptions, i.e. PSA benchmark = '0.2 ramp 6 for 30, 6'"""
+
 import numpy as np
 from bokeh.io import output_file
 
 
 def SMM(CPR):
-    return 1 - ((1 - CPR) ** (1 / 12))
+    return 1 - (1 - CPR) ** (1 / 12)
 
 
 def CPR(SMM):
@@ -11,10 +21,7 @@ def CPR(SMM):
 
 
 def PSA(month):
-    if month <= 30:
-        return month * 0.002
-    else:
-        return .06
+    return month * 0.002 if month <= 30 else 6
 
 
 def cpr_curve_creator(description='.2 ramp 6 for 30, 6'):
