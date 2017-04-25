@@ -6,7 +6,7 @@ from bokeh.layouts import widgetbox, layout
 # from bokeh.io import output_file, show
 from bokeh.models import NumeralTickFormatter, ColumnDataSource
 from bokeh.models.tools import HoverTool
-from bokeh.models.widgets import Button, Slider, DataTable, NumberFormatter, TableColumn
+from bokeh.models.widgets import Button, Slider, DataTable, NumberFormatter, TableColumn, TextInput
 from bokeh.plotting import figure, curdoc
 
 warnings.filterwarnings('ignore')
@@ -21,12 +21,14 @@ colors = {
     4: 'orange'
 }
 
-psa_slider = Slider(start=.1, end=5, step=.1, value=1, title='PSA')
+cpr_curve_input = TextInput(title='CPR Curve Description', value='.2 ramp 6 for 30, 6')
+psa_speed_slider = Slider(start=.1, end=5, step=.1, value=1, title='Prepay Curve Speed')
 wam_slider = Slider(start=10, end=360, step=1, value=358, title='WAM')
 original_balance_slider = Slider(start=1e6, end=1e9, step=1e6, value=400e6, title='Original balance')
 calc_button = Button(label='Calculate')
 
-controls = [psa_slider, wam_slider, original_balance_slider, calc_button]
+inputbox1 = widgetbox([psa_speed_slider, wam_slider, original_balance_slider])
+inputbox2 = widgetbox([cpr_curve_input, calc_button])
 # for control in controls:
 #    control.on_change('value', lambda attr, old, new: update())
 
@@ -95,8 +97,8 @@ waterfall_figure.yaxis.formatter = NumeralTickFormatter(format=',')
 data_table = DataTable(source=source, columns=columns, fit_columns=True, width=1200, row_headers=False)
 
 def update():
-
-    speed = psa_slider.value
+    cpr_curve = pc.cpr_curve_creator(cpr_curve_input.value)
+    speed = psa_speed_slider.value
     wam = wam_slider.value
     bal = original_balance_slider.value
 
@@ -117,12 +119,14 @@ def update():
     for period in window:
         source.data['index'].append(period)
         source.data['periods'].append(period)
-        source.data['psa_speed'].append(pc.PSA(period) * speed)
+        source.data['psa_speed'].append(cpr_curve[period - 1] * speed)
 
     print(pd.DataFrame(data=[source.data['periods'], source.data['psa_speed']]).T.tail())
-    psa_figure.circle(x='periods', y='psa_speed', source=source, name='PSA-{0:.2f}'.format(mult), alpha=1, color='red')
+    psa_figure.line(x='periods', y='psa_speed', source=source, name='PSA-{0:.2f}'.format(mult), alpha=1,
+                    color='red', legend='CPR Curve')
 
-    waterfall = cw.create_waterfall(original_balance=bal, psa_speed=speed, wam=wam)
+    waterfall = cw.create_waterfall(original_balance=bal, psa_speed=speed, wam=wam,
+                                    cpr_description=cpr_curve_input.value)
     source.data['cash_flow'] = waterfall.cash_flow.tolist()
     source.data['beginning_balance'] = waterfall.beginning_balance.tolist()
     source.data['SMM'] = waterfall.SMM.tolist()
@@ -132,7 +136,7 @@ def update():
     source.data['scheduled_principal'] = waterfall.scheduled_principal.tolist()
     source.data['total_principal'] = waterfall.total_principal.tolist()
 
-    waterfall_figure.circle(x='periods', y='cash_flow', color='blue', source=source)
+    waterfall_figure.circle(x='periods', y='cash_flow', color='blue', source=source, legend='Total Cash Flow')
 
     # print(len(source.data['beginning_balance']), len(source.data['psa_speed']), len(source.data['cash_flow']))
 
@@ -141,10 +145,8 @@ def update():
 
 calc_button.on_click(update)
 
-inputs = widgetbox(*controls)
-
 grid = layout([
-    [inputs],
+    [inputbox1, inputbox2],
     [data_table],
     [psa_figure, waterfall_figure]])  # , sizing_mode='stretch_both')
 

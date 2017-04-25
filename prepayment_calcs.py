@@ -1,6 +1,5 @@
 import numpy as np
-from bokeh.io import output_file, show
-from bokeh.plotting import figure
+from bokeh.io import output_file
 
 
 def SMM(CPR):
@@ -18,7 +17,7 @@ def PSA(month):
         return .06
 
 
-def cpr_curve_creator(description):
+def cpr_curve_creator(description='.2 ramp 6 for 30, 6'):
     """ Produces a 360 period CPR curve described by a text input string. Acceptable input is of the form
     '<start cpr> ramp <end cpr> for <duration>'.
     
@@ -27,7 +26,10 @@ def cpr_curve_creator(description):
     Only <start cpr> is required. If no <duration> is provided, the final instruction will carry to 360 periods, i.e. 
     '6' as the input will produce a CPR curve of 6 through period 360; 
     
-    To produce 100 PSA, the input string is '.2 ramp 6 for 30, 6'"""
+    To produce 100 PSA, the input string is '.2 ramp 6 for 30, 6'
+    
+    Returns PSA by default
+    """
 
     periods = str(description).split(',')
     nperiods = 360
@@ -52,10 +54,10 @@ def cpr_curve_creator(description):
 
         for i in range(len(words)):
             if i == 0:
-                start_cpr = float(words[i])
-                end_cpr = float(words[i])
+                start_cpr = float(words[i]) / 100.
+                end_cpr = float(words[i]) / 100.
             elif words[i] == 'ramp':
-                end_cpr = float(words[i + 1])
+                end_cpr = float(words[i + 1]) / 100.
             elif words[i] == 'for':
                 period_duration = float(words[i + 1])
 
@@ -85,8 +87,9 @@ if __name__ == '__main__':
     #         y.append(PSA(period) * mult)
     #     p.line(x, y, name='PSA-{0:.2f}'.format(mult))
     # show(p)
-
-    p = figure()
-    p.circle(range(1, 361),
-             cpr_curve_creator('0 for 20, .2 ramp 6 for 30, 9 for 15, 9 ramp 8 for 35, 2 ramp 7 for 70, 6'))
-    show(p)
+    a = cpr_curve_creator('.2 ramp 6 for 30, 6')
+    print(len(a))
+    # p = figure()
+    # p.circle(range(1, 361),
+    #          cpr_curve_creator('0 for 20, .2 ramp 6 for 30, 9 for 15, 9 ramp 8 for 35, 2 ramp 7 for 70, 6'))
+    # show(p)

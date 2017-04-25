@@ -4,13 +4,15 @@ import pandas as pd
 import prepayment_calcs as pc
 
 
-def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=358, psa_speed=1.0):
+def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=358, psa_speed=1.0,
+                     cpr_description='.2 ramp 6 for 30, 6'):
+    cpr_curve = pc.cpr_curve_creator(cpr_description)
     age = 360 - wam
 
     index = pd.Index(range(1, wam + 1), name='month')
 
     beg_balance = np.zeros(wam)
-    smm = np.array([pc.SMM(pc.PSA(age + period) * psa_speed) for period in index])
+    smm = np.array([pc.SMM(cpr_curve[period + age - 1] * psa_speed) for period in index])
 
     rem_cols = pd.DataFrame({
         'mortgage_payments': np.zeros(wam),
@@ -58,4 +60,5 @@ def calculate_balance(previous_balance, reductions=0):
 
 
 if __name__ == "__main__":
-    create_waterfall()
+    a = create_waterfall()
+    print(a.head())
