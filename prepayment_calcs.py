@@ -116,7 +116,8 @@ def prepayment_curve_from_passive_active_composition(fast_smm, fast_amount, slow
     df.loc[0, 'slow_amount'] = slow_amount
     df['slow_smm'] = slow_smm
 
-    df.loc[0, 'pool_smm'] = (fast_amount * fast_smm) + (slow_amount * slow_smm)
+    df.loc[0, 'pool_smm'] = (df.loc[0, 'fast_amount'] * df.loc[0, 'fast_smm']) + \
+                            (df.loc[0, 'slow_amount'] * df.loc[0, 'slow_smm'])
 
     for i in range(1, len(df.index)):
         df.loc[i, 'fast_amount'] = df.loc[i - 1, 'fast_amount'] * ((1 - df.loc[i - 1, 'fast_smm']) /
