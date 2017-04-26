@@ -41,7 +41,7 @@ for mult in np.linspace(0.25, 3, num=12):
     for period in window:
         periods.append(period)
         psa_speed.append(pc.PSA(period) * mult)
-    psa_figure.line(periods, psa_speed, name='PSA-{0:.2f}'.format(mult), alpha=0.3)
+    psa_figure.line(periods, psa_speed, name='PSA-{0:.2f}'.format(mult), alpha=0.65)
 
 psa_figure.yaxis.formatter = NumeralTickFormatter(format='0%')
 
@@ -100,12 +100,6 @@ columns = [
     TableColumn(field='cash_flow', title='Total Cash Flow', formatter=NumberFormatter(format=',')),
 ]
 
-waterfall_figure.x_range = psa_figure.x_range
-waterfall_figure.xaxis.axis_label = 'Month of Payment'
-waterfall_figure.yaxis.axis_label = 'Total Cash Flows ($)'
-waterfall_figure.xaxis.formatter = NumeralTickFormatter(format='0')
-waterfall_figure.yaxis.formatter = NumeralTickFormatter(format=',')
-
 data_table = DataTable(source=source, columns=columns, fit_columns=True, width=1200, row_headers=False)
 
 def update():
@@ -155,6 +149,11 @@ def update():
                             size=1)
     waterfall_figure.line(x='periods', y='cash_flow', color='blue', source=source, legend='Total Cash Flow')
 
+    waterfall_figure.x_range = psa_figure.x_range
+    waterfall_figure.xaxis.axis_label = 'Month of Payment'
+    waterfall_figure.yaxis.axis_label = 'Total Cash Flows ($)'
+    waterfall_figure.xaxis.formatter = NumeralTickFormatter(format='0')
+    waterfall_figure.yaxis.formatter = NumeralTickFormatter(format=',')
     # print(len(source.data['beginning_balance']), len(source.data['psa_speed']), len(source.data['cash_flow']))
 
 # output_file('waterfalls.html')

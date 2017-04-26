@@ -9,6 +9,7 @@ PSA benchmark => PSA = $month * 0.002 if month <= 30 else 6$
 Also contains function to produce CPR curves based on text descriptions, i.e. PSA benchmark = '0.2 ramp 6 for 30, 6'"""
 
 import numpy as np
+import pandas as pd
 from bokeh.io import output_file
 
 
@@ -100,3 +101,33 @@ if __name__ == '__main__':
     # p.circle(range(1, 361),
     #          cpr_curve_creator('0 for 20, .2 ramp 6 for 30, 9 for 15, 9 ramp 8 for 35, 2 ramp 7 for 70, 6'))
     # show(p)
+
+
+def prepayment_curve_from_passive_active_composition(fast_smm, fast_amount, slow_smm, slow_amount, periods):
+    """ Produces a CPR curve from a heterogenous composition of a pool fast/active prepayers and slow/passive prepayers.
+    Inputs are speed of prepayment for each group and their starting composition"""
+
+    df = pd.DataFrame(0, index=np.arange(periods), columns=['fast_amount', 'fast_smm', 'slow_amount', 'slow_smm',
+                                                            'pool_smm', 'pool_cpr'])
+
+    df.loc[0, 'fast_amount'] = fast_amount
+    df['fast_smm'] = fast_smm
+
+    df.loc[0, 'slow_amount'] = slow_amount
+    df['slow_smm'] = slow_smm
+
+    df.loc[0, 'pool_smm'] = (fast_amount * fast_smm) + (slow_amount * slow_smm)
+
+    for i in range(1, len(df.index)):
+        df.loc[i, 'fast_amount'] = df.loc[i - 1, 'fast_amount'] * ((1 - df.loc[i - 1, 'fast_smm']) /
+                                                                   (1 - df.loc[i - 1, 'pool_smm']))
+
+        df.loc[i, 'slow_amount'] = df.loc[i - 1, 'slow_amount'] * ((1 - df.loc[i - 1, 'slow_smm']) /
+                                                                   (1 - df.loc[i - 1, 'pool_smm']))
+
+        df.loc[i, 'pool_smm'] = (df.loc[i, 'fast_amount'] * df.loc[i, 'fast_smm']) + \
+                                (df.loc[i, 'slow_amount'] * df.loc[i, 'slow_smm'])
+
+    df['pool_cpr'] = df['pool_smm'].apply(CPR)
+
+    return df
