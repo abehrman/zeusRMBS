@@ -145,6 +145,21 @@ def actual_balances(scheduled_balances, smm):
     """ Returns vector of actual balances and their fractional composition of scheuled"""
 
 
+def example():
+    coupon = list([0.06, 0.08, 0.10])
+    age = list([60, 120, 180, 240, 300, 359])
+
+    results = []
+    for i in coupon:
+        column = []
+        for j in age:
+            column.append(scheduled_balance_percent_for_period(i / 12, 360, j))
+        results.append(column)
+
+    df = pd.DataFrame(results).T
+    df.columns = coupon
+    df.index = age
+
 if __name__ == "__main__":
     a = create_waterfall()
     print(a.head())

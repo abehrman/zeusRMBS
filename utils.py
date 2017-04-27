@@ -1,5 +1,4 @@
 """ General functions """
 
-import numpy as np
 
-np.ppmt
+def inverse_floater_rate(coll_rate, notional, multiple):
