@@ -13,15 +13,15 @@ import pandas as pd
 from bokeh.io import output_file
 
 
-def SMM(CPR):
-    return 1 - (1 - CPR) ** (1 / 12)
+def smm(cpr):
+    return 1 - (1 - cpr) ** (1 / 12)
 
 
-def CPR(SMM):
-    return 1 - ((1 - SMM) ** 12)
+def cpr(smm):
+    return 1 - ((1 - smm) ** 12)
 
 
-def PSA(month):
+def psa(month):
     return month * 0.002 if month <= 30 else .06
 
 
@@ -57,7 +57,7 @@ def cpr_curve_creator(description='.2 ramp 6 for 30, 6'):
         if period == periods[-1]:
             end_period = True
 
-        period_duration = nperiods - current_period
+        period_duration = nperiods + current_period
         words = period.strip().split(' ')
 
         for i in range(len(words)):
@@ -72,35 +72,9 @@ def cpr_curve_creator(description='.2 ramp 6 for 30, 6'):
         period_curve = np.linspace(start_cpr, end_cpr, period_duration)
 
         cpr_curve.extend(list(period_curve))
-        current_period += period_duration - 1
+        current_period += period_duration
 
     return cpr_curve
-
-
-if __name__ == '__main__':
-    output_file('psa.html')
-    # hover = HoverTool(tooltips=[
-    #     ('Mortgage Age', '$x'),
-    #     ('Annual CPR', '$y')
-    # ])
-    # p = figure(title="PSA speeds", tools=[hover])
-    # periods = range(1, 361)
-    #
-    # for mult in np.linspace(0.5, 1.5, num=3):
-    #     x = []
-    #     y = []
-    #
-    #     for period in periods:
-    #         x.append(period)
-    #         y.append(PSA(period) * mult)
-    #     p.line(x, y, name='PSA-{0:.2f}'.format(mult))
-    # show(p)
-    a = cpr_curve_creator('.2 ramp 6 for 30, 6')
-    print(len(a))
-    # p = figure()
-    # p.circle(range(1, 361),
-    #          cpr_curve_creator('0 for 20, .2 ramp 6 for 30, 9 for 15, 9 ramp 8 for 35, 2 ramp 7 for 70, 6'))
-    # show(p)
 
 
 def prepayment_curve_from_passive_active_composition(fast_smm, fast_amount, slow_smm, slow_amount, periods):
@@ -129,6 +103,34 @@ def prepayment_curve_from_passive_active_composition(fast_smm, fast_amount, slow
         df.loc[i, 'pool_smm'] = (df.loc[i, 'fast_amount'] * df.loc[i, 'fast_smm']) + \
                                 (df.loc[i, 'slow_amount'] * df.loc[i, 'slow_smm'])
 
-    df['pool_cpr'] = df['pool_smm'].apply(CPR)
+    df['pool_cpr'] = df['pool_smm'].apply(cpr)
 
     return df
+
+if __name__ == '__main__':
+    # output_file('psa.html')
+    # # hover = HoverTool(tooltips=[
+    # #     ('Mortgage Age', '$x'),
+    # #     ('Annual CPR', '$y')
+    # # ])
+    # # p = figure(title="PSA speeds", tools=[hover])
+    # # periods = range(1, 361)
+    # #
+    # # for mult in np.linspace(0.5, 1.5, num=3):
+    # #     x = []
+    # #     y = []
+    # #
+    # #     for period in periods:
+    # #         x.append(period)
+    # #         y.append(PSA(period) * mult)
+    # #     p.line(x, y, name='PSA-{0:.2f}'.format(mult))
+    # # show(p)
+    # a = cpr_curve_creator('.2 ramp 6 for 30, 6')
+    # print(len(a))
+    # # p = figure()
+    # # p.circle(range(1, 361),
+    # #          cpr_curve_creator('0 for 20, .2 ramp 6 for 30, 9 for 15, 9 ramp 8 for 35, 2 ramp 7 for 70, 6'))
+    # # show(p)
+
+    a = cpr_curve_creator('.2 ramp 6 for 30, 6')
+    print(a)

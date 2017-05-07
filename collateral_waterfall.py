@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 import prepayment_calcs as pc
 
@@ -20,7 +21,7 @@ def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=
     index = pd.Index(range(1, wam + 1), name='month')
 
     beg_balance = np.zeros(wam)
-    smm = np.array([pc.SMM(cpr_curve[period + age - 1] * psa_speed) for period in index])
+    smm = np.array([pc.smm(cpr_curve[period + age - 1] * psa_speed) for period in index])
 
     rem_cols = pd.DataFrame({
         'mortgage_payments': np.zeros(wam),
@@ -112,7 +113,7 @@ def arm_coupons(rate_curve,
     return df
 
 
-def example():
+def example_matrix_of_balance_outstanding_by_age_and_coupon():
     coupon = list([0.06, 0.08, 0.10])
     age = list([60, 120, 180, 240, 300, 359])
 
@@ -128,7 +129,25 @@ def example():
     df.index = age
     return df
 
+def example_waterfalls_at_different_prepays():
+    waterfall = {}
+
+    figure, axes = plt.subplots()
+    for i in range(3):
+        for j in range(4):
+            print(i,j)
+            waterfall[i, j] = create_waterfall(original_balance=200000,
+                                                  psa_speed=i + (j * 0.25),
+                                                  pass_thru_cpn=0.075,
+                                                  wac=0.075,
+                                                  wam=360)
+            waterfall[i, j].beginning_balance.plot(ax=axes)
+    plt.show()
+
+def example_arm_coupon_determinations():
+    rates = [None, 8.2, 5., 5.75, 4.]
+    df = arm_coupons(rates, 1.75, 0.65, 5.1, 1)
 
 if __name__ == "__main__":
-    a = example()
-    print(a.head())
+    a = example_matrix_of_balance_outstanding_by_age_and_coupon()
+    print(a)
