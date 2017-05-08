@@ -149,5 +149,7 @@ def example_arm_coupon_determinations():
     df = arm_coupons(rates, 1.75, 0.65, 5.1, 1)
 
 if __name__ == "__main__":
+    cw = create_waterfall()
+
     a = example_matrix_of_balance_outstanding_by_age_and_coupon()
     print(a)

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+ssh -i ~/.ssh/zeusRMBS-key adam.behrman@104.196.209.209

@@ -78,7 +78,7 @@ class BondPricing:
                                                              v['coupon_freq'])[0])
 
     @staticmethod
-    def spot_from_par(par_bonds):
+    def spot_from_par(par_bonds=None):
 
         if par_bonds is None:
             par_bonds = pd.DataFrame([
@@ -88,8 +88,8 @@ class BondPricing:
                 {'Maturity': 4., 'Yield': 10.},
             ])
 
-        par_bonds.loc[0, 'spot_rate'] = bonds.loc[0, 'Yield']
-        for i in np.arange(1, len(bonds)):
+        par_bonds.loc[0, 'spot_rate'] = par_bonds.loc[0, 'Yield']
+        for i in np.arange(1, len(par_bonds)):
             result = 0
             for j in range(i):
                 # print(i,j)
