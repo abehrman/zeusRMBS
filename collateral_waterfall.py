@@ -8,7 +8,7 @@ import prepayment_calcs as pc
 
 
 def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=358, psa_speed=1.0,
-                     cpr_description='.2 ramp 6 for 30, 6'):
+                     cpr_description='.2 ramp 6 for 30, 6', servicing=0):
     """ Takes collateral summary inputs based on aggregations equaling total original balance, average pass-thru-coupon,
     weighted average coupon of underlying loans, weighted average maturity of underlying loans, psa speed multiplier
     for prepayment curve, and constant prepayment rate curve description.
@@ -29,7 +29,8 @@ def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=
         'scheduled_principal': np.zeros(wam),
         'prepayments': np.zeros(wam),
         'total_principal': np.zeros(wam),
-        'cash_flow': np.zeros(wam)
+        'cash_flow': np.zeros(wam),
+        'servicing': np.zeros(wam)
     }, index=index)
 
     waterfall = pd.DataFrame(data=[beg_balance, smm]).T
@@ -58,8 +59,8 @@ def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=
         row['prepayments'] = row['SMM'] * (row['beginning_balance'] - row['scheduled_principal'])
 
         row['total_principal'] = row['scheduled_principal'] + row['prepayments']
-        row['total_principal'] = row['scheduled_principal'] + row['prepayments']
         row['cash_flow'] = row['net_interest'] + row['total_principal']
+        row['servicing'] = row['beginning_balance'] * servicing
 
     return waterfall
 
@@ -148,8 +149,8 @@ def example_arm_coupon_determinations():
     rates = [None, 8.2, 5., 5.75, 4.]
     df = arm_coupons(rates, 1.75, 0.65, 5.1, 1)
 
-if __name__ == "__main__":
-    cw = create_waterfall()
-
-    a = example_matrix_of_balance_outstanding_by_age_and_coupon()
-    print(a)
+# if __name__ == "__main__":
+#     cw = create_waterfall()
+#
+#     a = example_matrix_of_balance_outstanding_by_age_and_coupon()
+#     print(a)

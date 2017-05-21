@@ -16,3 +16,9 @@ def modified_duration(duration, yld):
 
 def effective_duration(price, delta_down_price, delta_up_price, yld_delta):
     return (-100/price) * ((delta_down_price - delta_up_price) / (2 * yld_delta))
+
+def age_perc(age, e=30):
+    return min(age/e, 1)
+
+def burn_perc(factor, f=0.7):
+    return 1 - f * (1 - factor)
