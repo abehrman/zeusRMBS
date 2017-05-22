@@ -141,7 +141,7 @@ def example_waterfalls_at_different_prepays():
 
 def example_arm_coupon_determinations():
     rates = [None, 8.2, 5., 5.75, 4.]
-    df = CMO.arm_coupons(rates, 1.75, 0.65, 5.1, 1)
+    df = arm_coupons(rates, 1.75, 0.65, 5.1, 1)
 
 # if __name__ == "__main__":
 #     cw = create_waterfall()
