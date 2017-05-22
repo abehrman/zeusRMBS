@@ -6,13 +6,12 @@ import matplotlib.pyplot as plt
 
 import prepayment_calcs as pc
 
-
 def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=358, psa_speed=1.0,
-                     cpr_description='.2 ramp 6 for 30, 6', servicing=0):
+                         cpr_description='.2 ramp 6 for 30, 6', servicing=0):
     """ Takes collateral summary inputs based on aggregations equaling total original balance, average pass-thru-coupon,
     weighted average coupon of underlying loans, weighted average maturity of underlying loans, psa speed multiplier
     for prepayment curve, and constant prepayment rate curve description.
-    
+
     CPR description is turned into a list of CPRs which are then run through the SMM function for period SMMs."""
 
     cpr_curve = pc.cpr_curve_creator(cpr_description)
@@ -64,7 +63,6 @@ def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=
 
     return waterfall
 
-
 def schedule_of_ending_balances(rate, nper, pv):
     """ Returns data frame of scheduled balances and each periods scheduled balance as a %
     of the original balance"""
@@ -80,18 +78,15 @@ def schedule_of_ending_balances(rate, nper, pv):
 
     return df
 
-
 def schedule_of_ending_balance_percent_for_period(rate, nper, age):
     return (1. - ((((1 + rate) ** age) - 1.) /
                   (((1 + rate) ** nper) - 1.)))
-
 
 def actual_balances(ending_balances, smm):
     """ Returns vector of actual balances and their fractional composition of scheuled"""
     # age = 361 - len(ending_balances)
 
     return ending_balances[:-1] * (1 - np.array(smm))
-
 
 def arm_coupons(rate_curve,
                 gross_margin,
@@ -113,7 +108,6 @@ def arm_coupons(rate_curve,
 
     return df
 
-
 def example_matrix_of_balance_outstanding_by_age_and_coupon():
     coupon = list([0.06, 0.08, 0.10])
     age = list([60, 120, 180, 240, 300, 359])
@@ -122,7 +116,7 @@ def example_matrix_of_balance_outstanding_by_age_and_coupon():
     for i in coupon:
         column = []
         for j in age:
-            column.append(schedule_of_ending_balance_percent_for_period(i / 12, 360, j))
+            column.append(CMO.schedule_of_ending_balance_percent_for_period(i / 12, 360, j))
         results.append(column)
 
     df = pd.DataFrame(results).T
@@ -147,7 +141,7 @@ def example_waterfalls_at_different_prepays():
 
 def example_arm_coupon_determinations():
     rates = [None, 8.2, 5., 5.75, 4.]
-    df = arm_coupons(rates, 1.75, 0.65, 5.1, 1)
+    df = CMO.arm_coupons(rates, 1.75, 0.65, 5.1, 1)
 
 # if __name__ == "__main__":
 #     cw = create_waterfall()
