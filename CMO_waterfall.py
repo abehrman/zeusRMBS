@@ -22,17 +22,23 @@ class CMO():
         self.bonds = bonds
 
         print('Creating collateral waterfall...')
-        self.collateral_waterfall = self.create_collateral_waterfall()
+        self.collateral_waterfall = self._create_collateral_waterfall()
 
         print('Producing CMO waterfall...')
-        self.cmo_waterfalls = self.calc_seq_bond_cfs_directed_cash(self.collateral_waterfall, self.bonds)
+        self.cmo_waterfalls = self._calc_seq_bond_cfs_directed_cash()
 
         print('Merging waterfalls...')
         self.waterfall = self.collateral_waterfall.merge(self.cmo_waterfalls, left_index=True, right_index=True)
 
         print('Done...')
 
-    def create_collateral_waterfall(self):
+    def update_collateral_waterfall(self):
+        self.cmo_waterfalls = self._create_collateral_waterfall()
+
+    def update_cmo_waterfalls(self):
+        self.cmo_waterfalls = self._calc_seq_bond_cfs_directed_cash()
+
+    def _create_collateral_waterfall(self):
         """ Takes collateral summary inputs based on aggregations equaling total original balance, average pass-thru-coupon,
         weighted average coupon of underlying loans, weighted average maturity of underlying loans, psa speed multiplier
         for prepayment curve, and constant prepayment rate curve description.
@@ -94,89 +100,12 @@ class CMO():
 
         return waterfall
 
-
-    def calc_seq_bond_cfs(self, collateral_waterfall, bonds):
-
-        bond_waterfalls = {}
-        for bond in bonds:
-            current_bond = bond['Bond']
-            bond_waterfalls[current_bond] = pd.DataFrame(
-                index=collateral_waterfall.index.values,
-                columns=['Bond_' + current_bond,
-                         'Coupon_' + current_bond,
-                         'Balance_' + current_bond,
-                         'Principal_' + current_bond,
-                         'Interest_' + current_bond,
-                         'Cashflow_' + current_bond])
-            bond_waterfalls[current_bond]['Bond_' + current_bond] = current_bond
-            bond_waterfalls[current_bond]['Coupon_' + current_bond] = bond['Coupon']
-            bond_waterfalls[current_bond].loc[1, 'Balance_' + current_bond] = bond['Balance']
-            bond_waterfalls[current_bond].loc[1, 'Scheduled_Payment_' + current_bond] = np.nan
-
-        final_df = pd.DataFrame(index=collateral_waterfall.index, columns=['remaining_cash'])
-
-        # for k, v in collateral_waterfall.iterrows():
-        for k in collateral_waterfall.index.values:
-            rem_cash = np.float(collateral_waterfall.loc[k, 'cash_flow'])
-            # pay interest
-
-            for i in range(len(bonds)):
-
-                current_bond = bonds[i]['Bond']
-
-                if k > 1:
-                    bond_waterfalls[current_bond].loc[k, 'Balance_' + current_bond] = \
-                        bond_waterfalls[current_bond].loc[k - 1, 'Balance_' + current_bond] - \
-                        (bond_waterfalls[current_bond].loc[k - 1, 'Cashflow_' + current_bond] - \
-                         bond_waterfalls[current_bond].loc[k - 1, 'Interest_' + current_bond])
-
-                bond_waterfalls[current_bond].loc[k, 'Interest_' + current_bond] = round(-np.ipmt(
-                    bond_waterfalls[current_bond].loc[k, 'Coupon_' + current_bond] / 12,
-                    1,
-                    361 - k,
-                    bond_waterfalls[current_bond].loc[k, 'Balance_' + current_bond]), 2)
-
-                bond_waterfalls[current_bond].loc[k, 'Scheduled_Payment_' + current_bond] = round(-np.pmt(
-                    bond_waterfalls[current_bond].loc[k, 'Coupon_' + current_bond] / 12,
-                    361 - k,
-                    bond_waterfalls[current_bond].loc[k, 'Balance_' + current_bond]), 2)
-
-                interest_cash_flow = min(
-                    np.float(bond_waterfalls[current_bond].loc[k, 'Interest_' + current_bond]),
-                    np.float(rem_cash))
-
-                bond_waterfalls[current_bond].loc[k, 'Cashflow_' + current_bond] = interest_cash_flow
-
-                rem_cash -= interest_cash_flow
-
-            # pay principal
-            for i in range(len(bonds)):
-                current_bond = bonds[i]['Bond']
-
-                principal_cash_flow = min(
-                    np.float(bond_waterfalls[current_bond].loc[k, 'Balance_' + current_bond]),
-                    np.float(rem_cash))
-
-                bond_waterfalls[current_bond].loc[k, 'Principal_' + current_bond] = principal_cash_flow
-                bond_waterfalls[current_bond].loc[k, 'Cashflow_' + current_bond] += principal_cash_flow
-                rem_cash -= principal_cash_flow
-
-            final_df.loc[k, 'remaining_cash'] = rem_cash
-
-        for i in range(len(bonds)):
-            current_bond = bonds[i]['Bond']
-            final_df = final_df.merge(bond_waterfalls[current_bond],
-                                      left_index=True,
-                                      right_index=True)
-
-        return final_df
-
-    def calc_seq_bond_cfs_directed_cash(self, collateral_waterfall, bonds):
+    def _calc_seq_bond_cfs_directed_cash(self):
         self._bond_waterfalls = {}
-        for bond in bonds:
+        for bond in self.bonds:
             current_bond = bond['Bond']
             self._bond_waterfalls[current_bond] = pd.DataFrame(
-                index=collateral_waterfall.index.values,
+                index=self.collateral_waterfall.index.values,
                 columns=['Bond_' + current_bond,
                          'Coupon_' + current_bond,
                          'Balance_' + current_bond,
@@ -192,35 +121,35 @@ class CMO():
             self._bond_waterfalls[current_bond]['Type_' + current_bond] = self._bond_type(bond)
 
 
-        final_df = pd.DataFrame(index=collateral_waterfall.index, columns=['remaining_interest',
+        final_df = pd.DataFrame(index=self.collateral_waterfall.index, columns=['remaining_interest',
                                                                            'remaining_principal'])
 
         # for k, v in collateral_waterfall.iterrows():
-        for period in collateral_waterfall.index.values:
+        for period in self.collateral_waterfall.index.values:
 
             if period > 75:
                 x = 1
 
-            self._rem_interest_cash = np.float(collateral_waterfall.loc[period, 'net_interest'])
-            self._rem_principal_cash = np.float(collateral_waterfall.loc[period, 'total_principal'])
+            self._rem_interest_cash = np.float(self.collateral_waterfall.loc[period, 'net_interest'])
+            self._rem_principal_cash = np.float(self.collateral_waterfall.loc[period, 'total_principal'])
 
             # set new period balances
 
-            for i in range(len(bonds)):
-                current_bond = bonds[i]['Bond']
+            for i in range(len(self.bonds)):
+                current_bond = self.bonds[i]['Bond']
                 if period > 1:
                     new_balance = self._calc_period_beginning_balance(current_bond, period)
                     self._bond_waterfalls[current_bond].loc[period, 'Balance_' + current_bond] = new_balance
 
                 else:
-                    new_balance = bonds[i]['Balance']
+                    new_balance = self.bonds[i]['Balance']
 
             self._non_accrual_principal = self._calc_non_accrual_principal_balances(period)
 
             # pay interest
 
-            for i in range(len(bonds)):
-                current_bond = bonds[i]['Bond']
+            for i in range(len(self.bonds)):
+                current_bond = self.bonds[i]['Bond']
                 coupon = self._bond_waterfalls[current_bond].loc[period, 'Coupon_' + current_bond]
                 is_accrual = self._bond_type(bonds[i]) == 'accrual'
 
@@ -253,8 +182,8 @@ class CMO():
 
             # TODO: principal pay down not showing in Z-bond dataframe
 
-            for i in range(len(bonds)):
-                current_bond = bonds[i]['Bond']
+            for i in range(len(self.bonds)):
+                current_bond = self.bonds[i]['Bond']
                 if self._rem_principal_cash > 0:
                     principal_cash_flow = min(
                         np.float(self._bond_waterfalls[current_bond].loc[period, 'Balance_' + current_bond]),
@@ -270,8 +199,8 @@ class CMO():
             final_df.loc[period, 'remaining_principal'] = self._rem_principal_cash
             final_df.loc[period, 'remaining_interest'] = self._rem_interest_cash
 
-        for i in range(len(bonds)):
-            current_bond = bonds[i]['Bond']
+        for i in range(len(self.bonds)):
+            current_bond = self.bonds[i]['Bond']
             final_df = final_df.merge(self._bond_waterfalls[current_bond],
                                       left_index=True,
                                       right_index=True)
