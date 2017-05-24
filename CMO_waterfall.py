@@ -297,6 +297,37 @@ class CMO():
 
         return interest_due, interest_paid
 
+    def create_pro_rata_bonds(self, bonds):
+
+        pro_rata_bonds = {}
+
+        for split in bonds:
+            current_bond = split['source_bond']
+            for child_bond in split['child_bonds']:
+                pro_rata_bonds[child_bond] = self._bond_waterfalls[current_bond].copy()
+                pro_rata_bonds[child_bond].columns = pro_rata_bonds[child_bond].columns.str.replace('_' + current_bond,
+                                                                                                    '_' + child_bond)
+                pro_rata_bonds[child_bond].loc[:, ['Balance_' + child_bond,
+                                                   'Principal_' + child_bond,
+                                                   'Interest_Due_' + child_bond,
+                                                   'Interest_Paid_' + child_bond,
+                                                   'Cashflow_' + child_bond]] = \
+                    pro_rata_bonds[child_bond].loc[:, ['Balance_' + child_bond,
+                                                       'Principal_' + child_bond,
+                                                       'Interest_Due_' + child_bond,
+                                                       'Interest_Paid_' + child_bond,
+                                                       'Cashflow_' + child_bond]].applymap(
+                        lambda x: x * split['child_bonds'][child_bond])
+
+                self.waterfall = self.waterfall.merge(pro_rata_bonds[child_bond], left_index=True, right_index=True)
+
+        for key in pro_rata_bonds.keys():
+            self._bond_waterfalls[key] = pro_rata_bonds[key]
+
+        self.waterfall.drop(self.waterfall.columns[self.waterfall.columns.str.contains('_' + current_bond + '$')], axis=1,
+                              inplace=True)
+
+
 if __name__ == '__main__':
     initial_balance = 100e6  # 100 million
     net_coupon = 0.10  # 10%
