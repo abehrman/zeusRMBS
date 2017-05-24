@@ -151,7 +151,7 @@ class CMO():
             for i in range(len(self.bonds)):
                 current_bond = self.bonds[i]['Bond']
                 coupon = self._bond_waterfalls[current_bond].loc[period, 'Coupon_' + current_bond]
-                is_accrual = self._bond_type(bonds[i]) == 'accrual'
+                is_accrual = self._bond_type(self.bonds[i]) == 'accrual'
 
                 # calculate interest due and paid
 

@@ -30,31 +30,9 @@ colors = {
 wam = 360
 window = range(1, wam + 1)
 
-# PSA graph
+collateral_source = ColumnDataSource()
 
-psa_figure = figure(title='CPR Rate', tools=['box_zoom', 'lasso_select', 'box_select', 'save', 'reset'])
-
-for mult in np.linspace(0.25, 3, num=12):
-    periods = []
-    psa_speed = []
-
-    for period in window:
-        periods.append(period)
-        psa_speed.append(pc.psa(period) * mult)
-    psa_figure.line(periods, psa_speed, name='PSA-{0:.2f}'.format(mult), alpha=0.65)
-
-psa_figure.yaxis.formatter = NumeralTickFormatter(format='0%')
-
-source = ColumnDataSource(data=dict(periods=[],
-                                    psa_speed=[],
-                                    cash_flow=[],
-                                    beginning_balance=[],
-                                    SMM=[],
-                                    mortgage_payments=[],
-                                    net_interest=[],
-                                    prepayments=[],
-                                    scheduled_principal=[],
-                                    total_principal=[]))
+bonds_source = ColumnDataSource()
 
 cpr_curve_input = TextInput(title='CPR Curve Description', value='.2 ramp 6 for 30, 6')
 psa_speed_slider = Slider(start=.1, end=5, step=.1, value=1, title='Prepay Curve Speed')
@@ -74,7 +52,7 @@ inputbox2 = widgetbox([cpr_curve_input, calc_button, download_button])
 
 # Waterfall graphs
 
-waterfall_figure = figure(title='Waterfall',
+collateral_waterfall_figure = figure(title='Collateral',
                           tools=['box_zoom', 'lasso_select', 'box_select', 'save', 'reset', HoverTool(tooltips=[
                               ('Month:', '@periods{int}'),
                               ('SMM:', '@SMM{0.00000}'),
@@ -86,7 +64,7 @@ waterfall_figure = figure(title='Waterfall',
                               ('Total Cash Flow:', '@cash_flow{"$,"}'),
                           ])])
 
-psa_speeds = [1.0, 1.65]
+bond_waterfall_figure = figure(title='Bonds',tools=['box_zoom', 'lasso_select', 'box_select', 'save', 'reset'])
 
 columns = [
     TableColumn(field='periods', title='Month', formatter=NumberFormatter(format=',')),
@@ -111,43 +89,15 @@ def update():
     wam = wam_slider.value
     bal = original_balance_slider.value
 
-    source.data['index'] = []
-    source.data['periods'] = []
-    source.data['psa_speed'] = []
-    source.data['cash_flow'] = list(np.zeros(wam))
-    source.data['beginning_balance'] = list(np.zeros(wam))
-    source.data['SMM'] = list(np.zeros(wam))
-    source.data['mortgage_payments'] = list(np.zeros(wam))
-    source.data['net_interest'] = list(np.zeros(wam))
-    source.data['prepayments'] = list(np.zeros(wam))
-    source.data['scheduled_principal'] = list(np.zeros(wam))
-    source.data['total_principal'] = list(np.zeros(wam))
+    collateral_waterfall = ColumnDataSource(cw.create_waterfall(original_balance=bal, psa_speed=speed, wam=wam,
+                                    cpr_description=cpr_curve_input.value))
 
-    window = range(1, wam + 1)
-    print(window)
-    for period in window:
-        source.data['index'].append(period)
-        source.data['periods'].append(period)
-        source.data['psa_speed'].append(cpr_curve[period - 1] * speed)
-
-    print(pd.DataFrame(data=[source.data['periods'], source.data['psa_speed']]).T.tail())
-    psa_figure.line(x='periods', y='psa_speed', source=source, name='PSA-{0:.2f}'.format(mult), alpha=1,
-                    color='red', legend='CPR Curve')
-
-    waterfall = cw.create_waterfall(original_balance=bal, psa_speed=speed, wam=wam,
-                                    cpr_description=cpr_curve_input.value)
-    source.data['cash_flow'] = waterfall.cash_flow.tolist()
-    source.data['beginning_balance'] = waterfall.beginning_balance.tolist()
-    source.data['SMM'] = waterfall.SMM.tolist()
-    source.data['mortgage_payments'] = waterfall.mortgage_payments.tolist()
-    source.data['net_interest'] = waterfall.net_interest.tolist()
-    source.data['prepayments'] = waterfall.prepayments.tolist()
-    source.data['scheduled_principal'] = waterfall.scheduled_principal.tolist()
-    source.data['total_principal'] = waterfall.total_principal.tolist()
-
-    waterfall_figure.circle(x='periods', y='cash_flow', color='lightblue', source=source,
+    collateral_waterfall_figure.patch(x='periods',
+                                        y='cash_flow',
+                                        color='lightblue',
+                                        source=collateral_waterfall_figure,
                             size=1)
-    waterfall_figure.line(x='periods', y='cash_flow', color='blue', source=source, legend='Total Cash Flow')
+    waterfall_figure.line(xs='periods', y='cash_flow', color='blue', source=source, legend='Total Cash Flow')
 
     waterfall_figure.x_range = psa_figure.x_range
     waterfall_figure.xaxis.axis_label = 'Month of Payment'
