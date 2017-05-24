@@ -198,6 +198,8 @@ class CMO():
         # for k, v in collateral_waterfall.iterrows():
         for period in collateral_waterfall.index.values:
 
+            if period > 75:
+                x = 1
 
             self._rem_interest_cash = np.float(collateral_waterfall.loc[period, 'net_interest'])
             self._rem_principal_cash = np.float(collateral_waterfall.loc[period, 'total_principal'])
@@ -230,10 +232,15 @@ class CMO():
                                                                           coupon,
                                                                           is_accrual)
 
+                unpaid_interest = interest_paid - interest_due
+
                 self._bond_waterfalls[current_bond].loc[period, 'Interest_Due_' + current_bond] = interest_due
                 self._bond_waterfalls[current_bond].loc[period, 'Interest_Paid_' + current_bond] = interest_paid
 
-                self._bond_waterfalls[current_bond].loc[period, 'Cashflow_' + current_bond] = interest_paid
+                self._bond_waterfalls[current_bond].loc[period, 'Principal_' + current_bond] = unpaid_interest
+
+                self._bond_waterfalls[current_bond].loc[period, 'Cashflow_' + current_bond] = interest_paid + \
+                                                                                              unpaid_interest
 
                 # not using...calculate period scheduled payment
 
@@ -245,7 +252,7 @@ class CMO():
             # pay principal
 
             # TODO: principal pay down not showing in Z-bond dataframe
-            
+
             for i in range(len(bonds)):
                 current_bond = bonds[i]['Bond']
                 if self._rem_principal_cash > 0:
@@ -253,12 +260,12 @@ class CMO():
                         np.float(self._bond_waterfalls[current_bond].loc[period, 'Balance_' + current_bond]),
                         np.float(self._rem_principal_cash))
 
-                    self._bond_waterfalls[current_bond].loc[period, 'Principal_' + current_bond] = principal_cash_flow
+                    self._bond_waterfalls[current_bond].loc[period, 'Principal_' + current_bond] += principal_cash_flow
                     self._bond_waterfalls[current_bond].loc[period, 'Cashflow_' + current_bond] += principal_cash_flow
                     self._rem_principal_cash -= principal_cash_flow
 
                 else:
-                    self._bond_waterfalls[current_bond].loc[period, 'Principal_' + current_bond] = 0
+                    self._bond_waterfalls[current_bond].loc[period, 'Principal_' + current_bond] += 0
 
             final_df.loc[period, 'remaining_principal'] = self._rem_principal_cash
             final_df.loc[period, 'remaining_interest'] = self._rem_interest_cash
@@ -316,13 +323,13 @@ class CMO():
 
         starting_balance = bond_df.loc[prior_period, 'Balance_' + current_bond]
 
-        interest_due = bond_df.loc[prior_period, 'Interest_Due_' + current_bond]
-        interest_paid = bond_df.loc[prior_period, 'Interest_Paid_' + current_bond]
+        #interest_due = bond_df.loc[prior_period, 'Interest_Due_' + current_bond]
+        #interest_paid = bond_df.loc[prior_period, 'Interest_Paid_' + current_bond]
 
-        interest_due_unpaid = interest_due - interest_paid
+        #interest_due_unpaid = interest_due - interest_paid
         principal_paid = bond_df.loc[prior_period, 'Principal_' + current_bond]
 
-        return  starting_balance + interest_due_unpaid - principal_paid
+        return  starting_balance - principal_paid
 
 
     def _calc_interest_payment(self, period, balance, coupon, is_accrual):
@@ -345,7 +352,7 @@ class CMO():
         else:
 
             # calculate non-accrual bond principal balance not completely covered by available cash for principal
-            non_accrual_rem_principal = self._non_accrual_principal - self._rem_principal_cash
+            non_accrual_rem_principal = max(self._non_accrual_principal - self._rem_principal_cash,0)
 
             # redirect necessary amount of cash to pay down as much non-accrual principal as possible
             interest_cash_redirected_to_principal = min(interest_due,
@@ -366,7 +373,7 @@ if __name__ == '__main__':
     net_coupon = 0.10  # 10%
     gross_coupon = 0.1065  # 10.65%
     maturity = 360  # 30 years => monthly
-    servicing = 0.0  # servicing = 25bps
+    servicing = 0.0025  # servicing = 25bps
 
     bonds = [
         {'Bond': 'A',
