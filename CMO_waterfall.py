@@ -180,8 +180,6 @@ class CMO():
 
             # pay principal
 
-            # TODO: principal pay down not showing in Z-bond dataframe
-
             for i in range(len(self.bonds)):
                 current_bond = self.bonds[i]['Bond']
                 if self._rem_principal_cash > 0:
