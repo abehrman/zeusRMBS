@@ -326,6 +326,131 @@ class CMO():
                               inplace=True)
 
 
+    def calc_PAC_and_support(self, collateral_waterfall, lower_band=1, upper_band=3):
+
+        """
+
+        :param collateral_waterfall: actual waterfall for underlying collateral
+        :param lower_band: psa speed for determining lower_band payment schedule
+        :param upper_band: psa speed for determining upper_band payment schedule
+        :return: dataframe containing waterfall for PAC and Support bonds
+        """
+
+        # create collateral waterfall at psa speed for the lower band
+
+        lower_df = self._create_collateral_waterfall(original_balance=initial_balance,
+                                       pass_thru_cpn=net_coupon,
+                                       wac=gross_coupon,
+                                       wam=maturity,
+                                       psa_speed=lower_band,
+                                       servicing=servicing)
+
+        # create collateral waterfall at psa speed for the higher band
+
+        upper_df = self._create_collateral_waterfall(original_balance=initial_balance,
+                                       pass_thru_cpn=net_coupon,
+                                       wac=gross_coupon,
+                                       wam=maturity,
+                                       psa_speed=upper_band,
+                                       servicing=servicing)
+
+        # copy principal paydown schedules for the two bands to a new dataframe we will work in
+
+        pac_df = pd.DataFrame(data=[lower_df.total_principal.values,
+                                    upper_df.total_principal.values],
+                              ).T
+        pac_df.columns = ['PAC_lower_' + str(int(lower_band * 100)), 'PAC_upper_' + str(int(upper_band * 100))]
+        pac_df.index = collateral_waterfall.index
+
+        # PAC bond principal due is the minimum of the scheduled principal payment from the lower and upper band
+
+        pac_df['PAC_principal_due'] = pac_df.apply(
+            min, axis=1)
+
+        # Principal available to pay down PAC and Support bond is the total principal from the collateral
+
+        pac_df['available_principal'] = collateral_waterfall.total_principal
+
+        # PAC initial principal size is the sum of all the scheduled principal payments for the bond
+
+        pac_initial_balance = pac_df.PAC_principal_due.sum()
+        pac_new_balance = pac_initial_balance
+
+        # Support bond initial principal size is the balance remaining from the underlying collateral and the PAC bond
+
+        support_initial_balance = collateral_waterfall.loc[1, 'beginning_balance'] - pac_initial_balance
+        support_new_balance = support_initial_balance
+
+        pac_df.loc[1, 'PAC_balance'] = pac_initial_balance
+        pac_df.loc[1, 'Support_balance'] = support_initial_balance
+
+        pac_df['PAC_unpaid_principal'] = 0
+        pac_df['PAC_principal_paid'] = 0
+        pac_df['Support_principal_paid'] = 0
+
+        for period, values in pac_df.loc[1:].iterrows():
+
+            # iterate through periods and determine values for each row
+
+            pac_accrued_unpaid = 0
+
+            if period > 1:
+
+                pac_accrued_unpaid = pac_df.loc[period - 1, 'PAC_unpaid_principal']
+
+                # updated balances are the prior period balance less any principal payments during that period
+
+                pac_new_balance = pac_df.loc[period - 1, 'PAC_balance'] - pac_df.loc[period - 1, 'PAC_principal_paid']
+                support_new_balance = pac_df.loc[period - 1, 'Support_balance'] - pac_df.loc[
+                    period - 1, 'Support_principal_paid']
+
+                pac_df.loc[period, 'PAC_balance'] = pac_new_balance
+                pac_df.loc[period, 'Support_balance'] = support_new_balance
+
+            # current period PAC principal due is the scheduled principal for the period + any accrued unpaid principal
+            # if there wasn't enough principal cash flow in earlier periods to cover the scheduled PAC principal payment
+
+            pac_principal_due = values['PAC_principal_due'] + pac_accrued_unpaid
+            principal_available = values['available_principal']
+
+            # PAC principal payment is the min. of PAC principal due including accrued or available principal from
+            # collateral, since we can not pay more principal than available from the collateral
+
+            pac_principal_paid = min(pac_principal_due, principal_available)
+
+            # Support bond receives remaining principal after necessary PAC payment is met
+
+            support_principal_paid = max(min(support_new_balance, principal_available - pac_principal_paid), 0)
+
+            pac_principal_paid += (principal_available - pac_principal_paid - support_principal_paid)
+
+            unpaid_principal = max(pac_df.loc[:period, 'PAC_principal_due'].sum() -
+                                   (pac_df.loc[:period, 'PAC_principal_paid'].sum() + pac_principal_paid), 0)
+
+            pac_df.loc[period, ['PAC_principal_paid',
+                                'PAC_unpaid_principal',
+                                'Support_principal_paid']] = [pac_principal_paid,
+                                                              unpaid_principal,
+                                                              support_principal_paid]
+
+        return pac_df
+
+    @staticmethod
+    def return_PAC_Support_avg_life(waterfall):
+        """
+
+        :param waterfall: dataframe containing waterfalls for PAC and Support bonds
+        :return: [weighted average life PAC bond, weighted average life Support bond]
+        """
+
+        pac = (waterfall.index.values * waterfall.PAC_principal_paid).sum() / (waterfall.PAC_principal_paid.sum()) / 12
+
+        support = (waterfall.index.values * waterfall.Support_principal_paid).sum() / (
+            waterfall.Support_principal_paid.sum()) / 12
+
+        return [pac, support]
+
+
 if __name__ == '__main__':
     initial_balance = 100e6  # 100 million
     net_coupon = 0.10  # 10%
