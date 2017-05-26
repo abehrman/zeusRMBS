@@ -1,14 +1,20 @@
 """ Module for producing waterfall tables based on input collateral criteria. AKA amortization table."""
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 import prepayment_calcs as pc
 
-class CMO():
 
-    def __init__(self,original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, original_maturity=360, wam=358, psa_speed=1.0,
-                         cpr_description='.2 ramp 6 for 30, 6', servicing=None, bonds=[]):
+class CMO:
+    def __init__(self, bonds: list,
+                 original_balance=400e6,
+                 pass_thru_cpn=0.055,
+                 wac=0.06,
+                 original_maturity=360,
+                 wam=358,
+                 psa_speed=1.0,
+                 cpr_description: object = '.2 ramp 6 for 30, 6',
+                 servicing: float = None):
 
         print('Initializing...')
         self.original_balance = original_balance
@@ -22,22 +28,40 @@ class CMO():
         self.bonds = bonds
 
         print('Creating collateral waterfall...')
-        self.collateral_waterfall = self._create_collateral_waterfall()
+        self.collateral_waterfall = self._create_collateral_waterfall
 
         print('Producing CMO waterfall...')
-        self.cmo_waterfalls = self._calc_seq_bond_cfs_directed_cash()
+        self.cmo_waterfalls = self._calc_seq_bond_cfs_directed_cash
 
         print('Merging waterfalls...')
         self.waterfall = self.collateral_waterfall.merge(self.cmo_waterfalls, left_index=True, right_index=True)
 
         print('Done...')
 
-    def update_collateral_waterfall(self):
-        self.cmo_waterfalls = self._create_collateral_waterfall()
+    @property
+    def update_collateral_waterfall(self) -> str:
+        print('Creating collateral waterfall...')
+        self.collateral_waterfall = self._create_collateral_waterfall
 
-    def update_cmo_waterfalls(self):
-        self.cmo_waterfalls = self._calc_seq_bond_cfs_directed_cash()
+        print('Producing CMO waterfall...')
+        self.cmo_waterfalls = self._calc_seq_bond_cfs_directed_cash
 
+        print('Merging waterfalls...')
+        self.waterfall = self.collateral_waterfall.merge(self.cmo_waterfalls, left_index=True, right_index=True)
+
+        return 'Finished updating waterfalls...'
+
+    @property
+    def update_cmo_waterfalls(self) -> str:
+        print('Producing CMO waterfall...')
+        self.cmo_waterfalls = self._calc_seq_bond_cfs_directed_cash
+
+        print('Merging waterfalls...')
+        self.waterfall = self.collateral_waterfall.merge(self.cmo_waterfalls, left_index=True, right_index=True)
+
+        return 'Finished updating waterfall...can be accessed through the instance cmo_waterfalls object'
+
+    @property
     def _create_collateral_waterfall(self):
         """ Takes collateral summary inputs based on aggregations equaling total original balance, average pass-thru-coupon,
         weighted average coupon of underlying loans, weighted average maturity of underlying loans, psa speed multiplier
@@ -51,7 +75,10 @@ class CMO():
         index = pd.Index(range(1, self.wam + 1), name='month')
 
         beg_balance = np.zeros(self.wam)
-        smm = np.array([pc.smm(cpr_curve[period + age - 1] * self.psa_speed) for period in index])
+        try:
+            smm = np.array([pc.smm(cpr_curve[period - 1] * self.psa_speed[period - 1]) for period in index])
+        except:
+            smm = np.array([pc.smm(cpr_curve[period - 1] * self.psa_speed) for period in index])
 
         rem_cols = pd.DataFrame({
             'mortgage_payments': np.zeros(self.wam),
@@ -75,6 +102,7 @@ class CMO():
                 row['beginning_balance'] = waterfall['beginning_balance'].ix[ix - 1] - waterfall['total_principal'].ix[
                     ix - 1]
 
+            # noinspection PyTypeChecker
             row['mortgage_payments'] = -np.pmt(rate=self.wac / 12.,
                                                nper=self.wam - ix + 1,
                                                pv=row['beginning_balance'],
@@ -93,14 +121,14 @@ class CMO():
             if self.servicing is None:
                 row['servicing'] = row['mortgage_payments'] - (row['net_interest'] + row['total_principal'])
             else:
-                row['servicing'] = row['beginning_balance'] * self.servicing
+                row['servicing'] = row['beginning_balance'] * self.servicing / 12
 
             row['cash_flow'] = row['net_interest'] + row['total_principal'] + row['servicing']
 
-
         return waterfall
 
-    def _calc_seq_bond_cfs_directed_cash(self):
+    @property
+    def _calc_seq_bond_cfs_directed_cash(self) -> object:
         self._bond_waterfalls = {}
         for bond in self.bonds:
             current_bond = bond['Bond']
@@ -117,18 +145,14 @@ class CMO():
             self._bond_waterfalls[current_bond]['Bond_' + current_bond] = current_bond
             self._bond_waterfalls[current_bond]['Coupon_' + current_bond] = bond['Coupon']
             self._bond_waterfalls[current_bond].loc[1, 'Balance_' + current_bond] = bond['Balance']
-            #self._bond_waterfalls[current_bond].loc[1, 'Scheduled_Payment_' + current_bond] = np.nan
-            self._bond_waterfalls[current_bond]['Type_' + current_bond] = self._bond_type(bond)
-
+            # self._bond_waterfalls[current_bond].loc[1, 'Scheduled_Payment_' + current_bond] = np.nan
+            self._bond_waterfalls[current_bond]['Type_' + current_bond] = _bond_type(bond)
 
         final_df = pd.DataFrame(index=self.collateral_waterfall.index, columns=['remaining_interest',
-                                                                           'remaining_principal'])
+                                                                                'remaining_principal'])
 
         # for k, v in collateral_waterfall.iterrows():
         for period in self.collateral_waterfall.index.values:
-
-            if period > 75:
-                x = 1
 
             self._rem_interest_cash = np.float(self.collateral_waterfall.loc[period, 'net_interest'])
             self._rem_principal_cash = np.float(self.collateral_waterfall.loc[period, 'total_principal'])
@@ -151,7 +175,7 @@ class CMO():
             for i in range(len(self.bonds)):
                 current_bond = self.bonds[i]['Bond']
                 coupon = self._bond_waterfalls[current_bond].loc[period, 'Coupon_' + current_bond]
-                is_accrual = self._bond_type(self.bonds[i]) == 'accrual'
+                is_accrual = _bond_type(self.bonds[i]) == 'accrual'
 
                 # calculate interest due and paid
 
@@ -173,10 +197,9 @@ class CMO():
 
                 # not using...calculate period scheduled payment
 
-                #scheduled_payment = round(-np.pmt(coupon / 12, 361 - period, new_balance), 2)
+                # scheduled_payment = round(-np.pmt(coupon / 12, 361 - period, new_balance), 2)
 
-                #self._bond_waterfalls[current_bond].loc[period, 'Scheduled_Payment_' + current_bond] = scheduled_payment
-
+                # self._bond_waterfalls[current_bond].loc[period, 'Scheduled_Payment_' + current_bond] = scheduled_payment
 
             # pay principal
 
@@ -205,14 +228,6 @@ class CMO():
 
         return final_df
 
-    @staticmethod
-    def _bond_type(bond):
-        try:
-            return bond['Type']
-        except KeyError:
-            return None
-
-
     def _calc_non_accrual_principal_balances(self, period):
         """
 
@@ -225,12 +240,11 @@ class CMO():
         for bond in self.bonds:
             current_bond = bond['Bond']
 
-            if self._bond_type(bond) != 'accrual':
+            if _bond_type(bond) != 'accrual':
                 non_accrual_principal_balances += self._bond_waterfalls[current_bond].loc[period,
                                                                                           'Balance_' + current_bond]
 
         return non_accrual_principal_balances
-
 
     def _calc_period_beginning_balance(self, current_bond, period):
 
@@ -250,14 +264,13 @@ class CMO():
 
         starting_balance = bond_df.loc[prior_period, 'Balance_' + current_bond]
 
-        #interest_due = bond_df.loc[prior_period, 'Interest_Due_' + current_bond]
-        #interest_paid = bond_df.loc[prior_period, 'Interest_Paid_' + current_bond]
+        # interest_due = bond_df.loc[prior_period, 'Interest_Due_' + current_bond]
+        # interest_paid = bond_df.loc[prior_period, 'Interest_Paid_' + current_bond]
 
-        #interest_due_unpaid = interest_due - interest_paid
+        # interest_due_unpaid = interest_due - interest_paid
         principal_paid = bond_df.loc[prior_period, 'Principal_' + current_bond]
 
-        return  starting_balance - principal_paid
-
+        return starting_balance - principal_paid
 
     def _calc_interest_payment(self, period, balance, coupon, is_accrual):
         """
@@ -279,15 +292,14 @@ class CMO():
         else:
 
             # calculate non-accrual bond principal balance not completely covered by available cash for principal
-            non_accrual_rem_principal = max(self._non_accrual_principal - self._rem_principal_cash,0)
+            non_accrual_rem_principal = max(self._non_accrual_principal - self._rem_principal_cash, 0)
 
             # redirect necessary amount of cash to pay down as much non-accrual principal as possible
             interest_cash_redirected_to_principal = min(interest_due,
-                                                                    non_accrual_rem_principal)
+                                                        non_accrual_rem_principal)
 
             # interest paid to accrual bond is the remaining balance after paying down non-accrual bond principal to 0
             interest_paid = interest_due - interest_cash_redirected_to_principal
-
 
         # remaining interest cash is reduced by the interest paid out
         self._rem_interest_cash -= (interest_paid + interest_cash_redirected_to_principal)
@@ -298,6 +310,7 @@ class CMO():
     def create_pro_rata_bonds(self, bonds):
 
         pro_rata_bonds = {}
+        current_bond = None
 
         for split in bonds:
             current_bond = split['source_bond']
@@ -322,9 +335,9 @@ class CMO():
         for key in pro_rata_bonds.keys():
             self._bond_waterfalls[key] = pro_rata_bonds[key]
 
-        self.waterfall.drop(self.waterfall.columns[self.waterfall.columns.str.contains('_' + current_bond + '$')], axis=1,
-                              inplace=True)
-
+        self.waterfall.drop(self.waterfall.columns[self.waterfall.columns.str.contains('_' + current_bond + '$')],
+                            axis=1,
+                            inplace=True)
 
     def calc_PAC_and_support(self, collateral_waterfall, lower_band=1, upper_band=3):
 
@@ -338,21 +351,11 @@ class CMO():
 
         # create collateral waterfall at psa speed for the lower band
 
-        lower_df = self._create_collateral_waterfall(original_balance=initial_balance,
-                                       pass_thru_cpn=net_coupon,
-                                       wac=gross_coupon,
-                                       wam=maturity,
-                                       psa_speed=lower_band,
-                                       servicing=servicing)
+        lower_df = self._create_collateral_waterfall
 
         # create collateral waterfall at psa speed for the higher band
 
-        upper_df = self._create_collateral_waterfall(original_balance=initial_balance,
-                                       pass_thru_cpn=net_coupon,
-                                       wac=gross_coupon,
-                                       wam=maturity,
-                                       psa_speed=upper_band,
-                                       servicing=servicing)
+        upper_df = self._create_collateral_waterfall
 
         # copy principal paydown schedules for the two bands to a new dataframe we will work in
 
@@ -395,7 +398,6 @@ class CMO():
             pac_accrued_unpaid = 0
 
             if period > 1:
-
                 pac_accrued_unpaid = pac_df.loc[period - 1, 'PAC_unpaid_principal']
 
                 # updated balances are the prior period balance less any principal payments during that period
@@ -451,14 +453,21 @@ class CMO():
         return [pac, support]
 
 
+def _bond_type(bond: dict) -> object:
+    try:
+        return bond['Type']
+    except KeyError:
+        return None
+
+
 if __name__ == '__main__':
     initial_balance = 100e6  # 100 million
-    net_coupon = 0.10  # 10%
-    gross_coupon = 0.1065  # 10.65%
+    net_cpn = 0.10  # 10%
+    gross_cpn = 0.1065  # 10.65%
     maturity = 360  # 30 years => monthly
-    servicing = 0.0025  # servicing = 25bps
+    servicing_fee = 0.0025  # servicing = 25bps
 
-    bonds = [
+    bonds_no_zbond = [
         {'Bond': 'A',
          'Balance': 30e6,
          'Coupon': 0.07},
@@ -487,13 +496,12 @@ if __name__ == '__main__':
          'Type': 'accrual'}
     ]
 
-
     struct = CMO(original_balance=initial_balance,
-                     pass_thru_cpn=net_coupon,
-                     wac=gross_coupon,
-                     wam=maturity,
-                     psa_speed=1.75,
-                     servicing=servicing,
-                     bonds=bonds_with_zbond)
+                 pass_thru_cpn=net_cpn,
+                 wac=gross_cpn,
+                 wam=maturity,
+                 psa_speed=1.75,
+                 servicing=servicing_fee,
+                 bonds=bonds_with_zbond)
 
     struct.waterfall.to_clipboard()

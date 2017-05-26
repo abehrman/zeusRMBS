@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 import prepayment_calcs as pc
 
-def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=358, psa_speed=[1.0],
+def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=358, psa_speed=1.0,
                          cpr_description='.2 ramp 6 for 30, 6', servicing=0):
     """ Takes collateral summary inputs based on aggregations equaling total original balance, average pass-thru-coupon,
     weighted average coupon of underlying loans, weighted average maturity of underlying loans, psa speed multiplier
@@ -22,9 +22,9 @@ def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=
     beg_balance = np.zeros(wam)
 
     try:
-        smm = np.array([pc.smm(cpr_curve[period + age - 1] * psa_speed[period-1]) for period in index])
+        smm = np.array([pc.smm(cpr_curve[period - 1] * psa_speed[period-1]) for period in index])
     except:
-        smm = np.array([pc.smm(cpr_curve[period + age - 1] * psa_speed) for period in index])
+        smm = np.array([pc.smm(cpr_curve[period - 1] * psa_speed) for period in index])
 
 
     rem_cols = pd.DataFrame({
@@ -64,7 +64,7 @@ def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=
 
         row['total_principal'] = row['scheduled_principal'] + row['prepayments']
         row['cash_flow'] = row['net_interest'] + row['total_principal']
-        row['servicing'] = row['beginning_balance'] * servicing
+        row['servicing'] = row['beginning_balance'] * servicing / 12
 
     return waterfall
 
