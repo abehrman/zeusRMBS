@@ -107,6 +107,23 @@ def prepayment_curve_from_passive_active_composition(fast_smm, fast_amount, slow
 
     return df
 
+
+def age_perc(age, e=30):
+    '''
+    Calculate age factor for prepayment speed determination
+    :param age: current month of seasoning
+    :param e: age divisor, max age, i.e. if e = 30 and current month >= 30 then 1
+    :return: percent seasoning factor for prepayment calc
+    '''
+    return min(age / e, 1)
+
+
+def burn_perc(factor, f=0.7):
+    '''
+    Calculates factor input for prepayment speed determination of the amount of burnout
+    return 1 - f * (1 - factor)
+    '''
+
 if __name__ == '__main__':
     # output_file('psa.html')
     # # hover = HoverTool(tooltips=[

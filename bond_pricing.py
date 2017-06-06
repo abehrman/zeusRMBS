@@ -4,6 +4,11 @@ import pandas as pd
 
 class BondPricing:
 
+    '''
+    Receives dictionary of par bonds and turns it into a dataframe with spot rates.
+    Has static functions for computing spot rates and forward rates.
+    '''
+
     def __init__(self, bonds):
         self.bonds = bonds
         self._append_spot_rate()
@@ -93,14 +98,24 @@ class BondPricing:
             result = 0
             for j in range(i):
                 # print(i,j)
-                print('{0:.10f} / ( 1 + {1:.10f}/100)**({2:.0f})'.format(par_bonds.loc[i, 'Yield'],
-                                                                         par_bonds.loc[j, 'spot_rate'],
-                                                                         j + 1))
+                # print('{0:.10f} / ( 1 + {1:.10f}/100)**({2:.0f})'.format(par_bonds.loc[i, 'Yield'],
+                #                                                          par_bonds.loc[j, 'spot_rate'],
+                #                                                          j + 1))
                 a = par_bonds.loc[i, 'Yield'] / (1. + par_bonds.loc[j, 'spot_rate'] / 100.) ** (j + 1.)
                 result += a
             par_bonds.loc[i, 'spot_rate'] = (((100. + par_bonds.loc[i, 'Yield']) / (100. - result)) ** (
             1. / (i + 1.)) - 1.) * 100
+
+        par_bonds.set_index('Maturity', inplace=True)
         return par_bonds
+
+    @staticmethod
+    def forward_rate(r1, t1, r2, t2, continuous=True):
+        if continuous:
+            return np.log((np.exp(r2 * t2) / np.exp(r1 * t1)) ** (1/(t2 - t1)))
+        else:
+            return (((1 + r2) ** t2) / ((1 + r1) ** t1)) ** (1 / (t2 - t1)) - 1
+
 
 if __name__ == "__main__":
     bonds = pd.DataFrame([

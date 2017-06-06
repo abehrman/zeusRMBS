@@ -2,6 +2,12 @@
 
 
 def bey_from_mey(mey):
+    """
+
+    :param mey: monthly bond yield
+    :return: bond equivalent yield
+    """
+
     bey = 2 * ((1 + mey / 12) ** 6 - 1)
 
 
@@ -17,11 +23,6 @@ def modified_duration(duration, yld):
 def effective_duration(price, delta_down_price, delta_up_price, yld_delta):
     return (-100/price) * ((delta_down_price - delta_up_price) / (2 * yld_delta))
 
-def age_perc(age, e=30):
-    return min(age/e, 1)
-
-def burn_perc(factor, f=0.7):
-    return 1 - f * (1 - factor)
 
 def floater_rates(floater_size=.75,
                   inverse_size=.25,
