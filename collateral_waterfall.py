@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 
 import prepayment_calcs as pc
 
+
 def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=358, psa_speed=1.0,
-                         cpr_description='.2 ramp 6 for 30, 6', servicing=0):
+                     cpr_description='.2 ramp 6 for 30, 6', servicing_fee=0):
     """ Takes collateral summary inputs based on aggregations equaling total original balance, average pass-thru-coupon,
     weighted average coupon of underlying loans, weighted average maturity of underlying loans, psa speed multiplier
     for prepayment curve, and constant prepayment rate curve description.
@@ -22,19 +23,20 @@ def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=
     beg_balance = np.zeros(wam)
 
     try:
-        smm = np.array([pc.smm(cpr_curve[period - 1] * psa_speed[period-1]) for period in index])
+        smm = np.array([pc.smm(cpr_curve[period - 1] * psa_speed[period - 1]) for period in index])
     except:
         smm = np.array([pc.smm(cpr_curve[period - 1] * psa_speed) for period in index])
 
-
     rem_cols = pd.DataFrame({
+        'ending_balance': np.zeros(wam),
         'mortgage_payments': np.zeros(wam),
         'net_interest': np.zeros(wam),
         'scheduled_principal': np.zeros(wam),
         'prepayments': np.zeros(wam),
         'total_principal': np.zeros(wam),
         'cash_flow': np.zeros(wam),
-        'servicing': np.zeros(wam)
+        'servicing': np.zeros(wam),
+        'other_fees': np.zeros(wam)
     }, index=index)
 
     waterfall = pd.DataFrame(data=[beg_balance, smm]).T
@@ -43,30 +45,70 @@ def create_waterfall(original_balance=400e6, pass_thru_cpn=0.055, wac=0.06, wam=
     waterfall = waterfall.join(rem_cols)
 
     for ix, row in waterfall.iterrows():
+
         if ix == 1:
-            row['beginning_balance'] = original_balance
+            beginning_balance = original_balance
         else:
-            row['beginning_balance'] = waterfall['beginning_balance'].ix[ix - 1] - waterfall['total_principal'].ix[
+            beginning_balance = waterfall['beginning_balance'].ix[ix - 1] - waterfall['total_principal'].ix[
                 ix - 1]
 
-        row['mortgage_payments'] = -np.pmt(rate=wac / 12.,
-                                           nper=wam - ix + 1,
-                                           pv=row['beginning_balance'],
-                                           fv=0.,
-                                           when='end')
+        row['beginning_balance'] = beginning_balance
 
-        row['net_interest'] = row['beginning_balance'] * pass_thru_cpn / 12.
-        gross_coupon = row['beginning_balance'] * (wac / 12.)
+        mortgage_payments = -np.pmt(rate=wac / 12.,
+                                    nper=wam - ix + 1,
+                                    pv=row['beginning_balance'],
+                                    fv=0.,
+                                    when='end')
+        row['mortgage_payments'] = mortgage_payments
 
-        row['scheduled_principal'] = row['mortgage_payments'] - gross_coupon
+        net_interest = beginning_balance * pass_thru_cpn / 12.
+        row['net_interest'] = net_interest
 
-        row['prepayments'] = row['SMM'] * (row['beginning_balance'] - row['scheduled_principal'])
+        gross_coupon = beginning_balance * (wac / 12.)
 
-        row['total_principal'] = row['scheduled_principal'] + row['prepayments']
-        row['cash_flow'] = row['net_interest'] + row['total_principal']
-        row['servicing'] = row['beginning_balance'] * servicing / 12
+        scheduled_principal = mortgage_payments - gross_coupon
+        row['scheduled_principal'] = scheduled_principal
+
+        prepayments = row['SMM'] * (beginning_balance - scheduled_principal)
+        row['prepayments'] = prepayments
+
+        total_principal = scheduled_principal + prepayments
+        row['total_principal'] = total_principal
+
+        cash_flow = net_interest + total_principal
+        row['cash_flow'] = cash_flow
+
+        servicing = beginning_balance * servicing_fee / 12
+        row['servicing'] = servicing
+
+        other_fees = mortgage_payments + prepayments \
+                     - total_principal - net_interest - servicing
+        row['other_fees'] = other_fees
+
+        row['ending_balance'] = beginning_balance - total_principal
+
+        # checks
+
+        if round(total_principal, 2) + round(gross_coupon, 2) > \
+                                round(mortgage_payments, 2) + round(prepayments, 2) + 1:
+            print("""
+total_principal:\t{0:.2f}\ngross_coupon:\t\t{1:.2f}
+mortgage_payments:\t{2:.2f}\nprepayments:\t\t{3:.2f}""".format(
+                total_principal, gross_coupon, mortgage_payments, prepayments
+            ))
+            raise ValueError("""Unable to computer waterfall table
+                             Not enough inflow cash available for outflows
+                             (i.e. total principal + gross coupon >
+                                mortgage _payments + prepayments)""")
+
+        if cash_flow > round(mortgage_payments, 2) + round(prepayments, 2) + 1:
+            raise ValueError("""Unable to computer waterfall table
+                                 Not enough inflow cash available for outflows
+                                 (i.e. cash_flow >
+                                    mortgage _payments + prepayments)""")
 
     return waterfall
+
 
 def schedule_of_ending_balances(rate, nper, pv):
     """ Returns data frame of scheduled balances and each periods scheduled balance as a %
@@ -83,15 +125,18 @@ def schedule_of_ending_balances(rate, nper, pv):
 
     return df
 
+
 def schedule_of_ending_balance_percent_for_period(rate, nper, age):
     return (1. - ((((1 + rate) ** age) - 1.) /
                   (((1 + rate) ** nper) - 1.)))
+
 
 def actual_balances(ending_balances, smm):
     """ Returns vector of actual balances and their fractional composition of scheuled"""
     # age = 361 - len(ending_balances)
 
     return ending_balances[:-1] * (1 - np.array(smm))
+
 
 def arm_coupons(rate_curve,
                 gross_margin,
@@ -113,6 +158,7 @@ def arm_coupons(rate_curve,
 
     return df
 
+
 def example_matrix_of_balance_outstanding_by_age_and_coupon():
     coupon = list([0.06, 0.08, 0.10])
     age = list([60, 120, 180, 240, 300, 359])
@@ -129,20 +175,22 @@ def example_matrix_of_balance_outstanding_by_age_and_coupon():
     df.index = age
     return df
 
+
 def example_waterfalls_at_different_prepays():
     waterfall = {}
 
     figure, axes = plt.subplots()
     for i in range(3):
         for j in range(4):
-            print(i,j)
+            print(i, j)
             waterfall[i, j] = create_waterfall(original_balance=200000,
-                                                  psa_speed=i + (j * 0.25),
-                                                  pass_thru_cpn=0.075,
-                                                  wac=0.075,
-                                                  wam=360)
+                                               psa_speed=i + (j * 0.25),
+                                               pass_thru_cpn=0.075,
+                                               wac=0.075,
+                                               wam=360)
             waterfall[i, j].beginning_balance.plot(ax=axes)
     plt.show()
+
 
 def example_arm_coupon_determinations():
     rates = [None, 8.2, 5., 5.75, 4.]
